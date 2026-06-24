@@ -19,14 +19,14 @@ import {
   ScrollView,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { makePayment, payByMpesa, payByTill } from "../api/client";
+import { makePayment, payByMpesa } from "../api/client";
 import { Bill } from "../types";
 
 function todayISO(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-type Method = "Cash" | "M-Pesa" | "M-Pesa Till" | "Bank Transfer";
+type Method = "Cash" | "M-Pesa" | "Bank Transfer";
 
 export default function MakePaymentScreen() {
   const navigation = useNavigation<any>();
@@ -62,9 +62,8 @@ export default function MakePaymentScreen() {
     }
     // M-Pesa codes are validated server-side too (isValidMpesaCode),
     // but checking length here gives the user faster feedback
-    // before even hitting the network. Applies to BOTH Paybill
-    // and Till — they produce the same kind of transaction code.
-    if ((method === "M-Pesa" || method === "M-Pesa Till") && reference.trim().length !== 10) {
+    // before even hitting the network.
+    if (method === "M-Pesa" && reference.trim().length !== 10) {
       setError("M-Pesa code must be exactly 10 characters.");
       return;
     }
@@ -78,8 +77,6 @@ export default function MakePaymentScreen() {
         // code was already used — that error message comes
         // straight from your Crow route's catch block.
         await payByMpesa(customerId, selectedBillId, reference.trim().toUpperCase(), amt, date);
-      } else if (method === "M-Pesa Till") {
-        await payByTill(customerId, selectedBillId, reference.trim().toUpperCase(), amt, date);
       } else {
         await makePayment(customerId, selectedBillId, method, reference || "N/A", amt, date);
       }
@@ -121,7 +118,7 @@ export default function MakePaymentScreen() {
 
         <Text style={styles.label}>Payment Method</Text>
         <View style={styles.methodRow}>
-          {(["Cash", "M-Pesa", "M-Pesa Till", "Bank Transfer"] as Method[]).map((m) => (
+          {(["Cash", "M-Pesa", "Bank Transfer"] as Method[]).map((m) => (
             <TouchableOpacity
               key={m}
               style={[styles.methodChip, method === m && styles.methodChipSelected]}
@@ -146,15 +143,15 @@ export default function MakePaymentScreen() {
         {method !== "Cash" && (
           <>
             <Text style={styles.label}>
-              {method === "M-Pesa" || method === "M-Pesa Till" ? "M-Pesa Transaction Code" : "Reference"}
+              {method === "M-Pesa" ? "M-Pesa Transaction Code" : "Reference"}
             </Text>
             <TextInput
               style={styles.input}
               value={reference}
               onChangeText={setReference}
-              placeholder={method === "M-Pesa" || method === "M-Pesa Till" ? "e.g. QGR7XYZ123" : "Reference number"}
+              placeholder={method === "M-Pesa" ? "e.g. QGR7XYZ123" : "Reference number"}
               autoCapitalize="characters"
-              maxLength={method === "M-Pesa" || method === "M-Pesa Till" ? 10 : undefined}
+              maxLength={method === "M-Pesa" ? 10 : undefined}
             />
           </>
         )}
