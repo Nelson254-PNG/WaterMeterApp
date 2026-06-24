@@ -1,10 +1,3 @@
-// ============================================================
-//  screens/CustomerDetailScreen.tsx
-//  Shows everything about ONE customer: balance, usage history,
-//  bills, and payment history. Buttons navigate to the action
-//  screens (Record Usage, Generate Bill, Make Payment).
-// ============================================================
-
 import React, { useState, useCallback } from "react";
 import {
   View,
