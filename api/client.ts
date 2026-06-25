@@ -1,4 +1,4 @@
-const BASE_URL = "http://192.168.137.1:8090";
+const BASE_URL = "https://unsidereal-justine-ovational.ngrok-free.dev";                        
 //API REQUEST
 async function apiRequest<T>(
   path: string,
