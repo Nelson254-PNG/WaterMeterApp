@@ -19,11 +19,13 @@ import {
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { getUsageHistory, getBills, getPayments, deleteCustomer } from "../api/client";
 import { UsageRecord, Bill, Payment } from "../types";
+import { useAuth } from "../context/AuthContext";
 
 export default function CustomerDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { customerId, customerName } = route.params;
+  const { token } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,12 +41,13 @@ export default function CustomerDetailScreen() {
   // than one after another — same end result, but faster, since
   // none of these three queries depend on each other's result.
   const loadData = useCallback(async () => {
+    if (!token) return;
     try {
       setError(null);
       const [usageData, billsData, paymentsData] = await Promise.all([
-        getUsageHistory(customerId),
-        getBills(customerId),
-        getPayments(customerId),
+        getUsageHistory(token, customerId),
+        getBills(token, customerId),
+        getPayments(token, customerId),
       ]);
       setUsage(usageData.records);
       setBills(billsData.bills);
@@ -56,7 +59,7 @@ export default function CustomerDetailScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [customerId]);
+  }, [customerId, token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -86,7 +89,7 @@ export default function CustomerDetailScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteCustomer(customerId);
+              await deleteCustomer(token!, customerId);
               navigation.navigate("CustomerList");
             } catch (e: any) {
               Alert.alert("Delete Failed", e.message ?? "Could not delete customer");
@@ -245,13 +248,11 @@ const styles = StyleSheet.create({
   payButtonText: { color: "white", fontWeight: "700", fontSize: 16 },
   deleteButton: {
     marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: "#fee2e2",
-    borderRadius: 10,
-    paddingVertical: 14,
+    marginBottom: 8,
+    paddingVertical: 12,
     alignItems: "center",
   },
-  deleteButtonText: { color: "#b91c1c", fontWeight: "700", fontSize: 16 },
+  deleteButtonText: { color: "#dc2626", fontWeight: "600", fontSize: 14 },
   sectionTitle: {
     fontSize: 15,
     fontWeight: "700",

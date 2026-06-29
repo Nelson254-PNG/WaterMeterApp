@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { recordUsage } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 // Helper: today's date as YYYY-MM-DD, matching what your
 // C++ DATE columns expect. Pre-fills the field so the user
@@ -30,6 +31,7 @@ export default function RecordUsageScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { customerId } = route.params;
+  const { token } = useAuth();
 
   const [currentReading, setCurrentReading] = useState("");
   const [date, setDate] = useState(todayISO());
@@ -52,7 +54,7 @@ export default function RecordUsageScreen() {
       // customer's last one — same validation your C++
       // recordUsageLogic() does, just surfaced here as a
       // caught exception with e.message holding the real text.
-      const result = await recordUsage(customerId, reading, date);
+      const result = await recordUsage(token!, customerId, reading, date);
       setSuccess(result.unitsUsed);
       setTimeout(() => navigation.goBack(), 1200);
     } catch (e: any) {

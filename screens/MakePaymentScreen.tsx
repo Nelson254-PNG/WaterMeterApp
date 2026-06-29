@@ -21,6 +21,7 @@ import {
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { makePayment, payByMpesa, payByTill } from "../api/client";
 import { Bill } from "../types";
+import { useAuth } from "../context/AuthContext";
 
 function todayISO(): string {
   return new Date().toISOString().split("T")[0];
@@ -32,6 +33,7 @@ export default function MakePaymentScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { customerId, bills } = route.params as { customerId: string; bills: Bill[] };
+  const { token } = useAuth();
 
   // Only show bills that aren't already fully paid — same
   // filter your CLI's makePayment() did with "WHERE paid = false".
@@ -77,11 +79,11 @@ export default function MakePaymentScreen() {
         // This is the endpoint that can throw a 409 if the
         // code was already used — that error message comes
         // straight from your Crow route's catch block.
-        await payByMpesa(customerId, selectedBillId, reference.trim().toUpperCase(), amt, date);
+        await payByMpesa(token!, customerId, selectedBillId, reference.trim().toUpperCase(), amt, date);
       } else if (method === "M-Pesa Till") {
-        await payByTill(customerId, selectedBillId, reference.trim().toUpperCase(), amt, date);
+        await payByTill(token!, customerId, selectedBillId, reference.trim().toUpperCase(), amt, date);
       } else {
-        await makePayment(customerId, selectedBillId, method, reference || "N/A", amt, date);
+        await makePayment(token!, customerId, selectedBillId, method, reference || "N/A", amt, date);
       }
       setSuccess(true);
       setTimeout(() => navigation.goBack(), 1200);

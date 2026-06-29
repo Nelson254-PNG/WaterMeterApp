@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { generateBill } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 function todayISO(): string {
   return new Date().toISOString().split("T")[0];
@@ -35,6 +36,7 @@ export default function GenerateBillScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { customerId } = route.params;
+  const { token } = useAuth();
 
   const [issueDate, setIssueDate] = useState(todayISO());
   const [dueDate, setDueDate] = useState(defaultDueDate());
@@ -50,7 +52,7 @@ export default function GenerateBillScreen() {
       // generateBill() throws "No unbilled usage records for this
       // customer" if there's nothing new to bill — same check
       // your C++ generateBillLogic() does with COUNT(*).
-      const res = await generateBill(customerId, issueDate, dueDate);
+      const res = await generateBill(token!, customerId, issueDate, dueDate);
       setResult(res);
       setTimeout(() => navigation.goBack(), 1500);
     } catch (e: any) {

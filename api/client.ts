@@ -1,84 +1,113 @@
 const BASE_URL = "https://unsidereal-justine-ovational.ngrok-free.dev";                        
-//API REQUEST
+//  HELPER: apiRequest
+//
+//  UPDATED: now accepts an optional `token` — when provided,
+//  it's attached as "Authorization: Bearer <token>", which
+//  is exactly the header format auth.h's requireAuth() on the
+//  C++ side expects to find.
+// ============================================================
 async function apiRequest<T>(
   path: string,
-  options: { method?: string; body?: object } = {}
+  options: { method?: string; body?: object; token?: string | null } = {}
 ): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (options.token) {
+    headers["Authorization"] = `Bearer ${options.token}`;
+  }
+ 
   const response = await fetch(`${BASE_URL}${path}`, {
     method: options.method ?? "GET",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
  
   const data = await response.json();
  
   if (!response.ok) {
-    // data.error is the field name your Crow handlers use
-    // for error messages — e.g. { "error": "Customer not found" }
     throw new Error(data.error ?? `Request failed with status ${response.status}`);
   }
  
   return data as T;
 }
- // screens call these exported functions
- import { Customer, UsageRecord, Bill, Payment } from "../types/index";
  
-export function getCustomers() {
-  return apiRequest<{ customers: Customer[] }>("/customers");
+import { Customer, UsageRecord, Bill, Payment } from "../types";
+ 
+// ── AUTH ─────────────────────────────────────────────────────
+export function adminLogin(username: string, password: string) {
+  return apiRequest<{ token: string; role: string; userId: string }>("/auth/admin-login", {
+    method: "POST",
+    body: { username, password },
+  });
 }
  
-export function registerCustomer(name: string, phone: string, openingReading: number) {
+// ── EVERY OTHER FUNCTION NOW TAKES `token` AS ITS FIRST ARG ───
+// This is a deliberate, consistent convention: every screen
+// that calls these passes the token it got from useAuth().
+ 
+export function getCustomers(token: string) {
+  return apiRequest<{ customers: Customer[] }>("/customers", { token });
+}
+ 
+export function registerCustomer(token: string, name: string, phone: string, openingReading: number) {
   return apiRequest<{ id: string; meterNumber: string }>("/customers", {
     method: "POST",
     body: { name, phone, openingReading },
+    token,
   });
 }
  
-export function deleteCustomer(customerId: string) {
+export function deleteCustomer(token: string, customerId: string) {
   return apiRequest<{ status: string }>(`/customers/${customerId}`, {
     method: "DELETE",
+    token,
   });
 }
  
-export function searchCustomers(name: string) {
+export function searchCustomers(token: string, name: string) {
   return apiRequest<{ results: Customer[] }>(
-    `/customers/search?name=${encodeURIComponent(name)}`
+    `/customers/search?name=${encodeURIComponent(name)}`,
+    { token }
   );
 }
  
-export function getUsageHistory(customerId: string) {
+export function getUsageHistory(token: string, customerId: string) {
   return apiRequest<{ customerName: string; records: UsageRecord[] }>(
-    `/customers/${customerId}/usage`
+    `/customers/${customerId}/usage`,
+    { token }
   );
 }
  
-export function recordUsage(customerId: string, currentReading: number, date: string) {
+export function recordUsage(token: string, customerId: string, currentReading: number, date: string) {
   return apiRequest<{ unitsUsed: number }>(`/customers/${customerId}/usage`, {
     method: "POST",
     body: { currentReading, date },
+    token,
   });
 }
  
-export function getBills(customerId: string) {
+export function getBills(token: string, customerId: string) {
   return apiRequest<{ customerName: string; balance: number; bills: Bill[] }>(
-    `/customers/${customerId}/bills`
+    `/customers/${customerId}/bills`,
+    { token }
   );
 }
  
-export function generateBill(customerId: string, issueDate: string, dueDate: string) {
+export function generateBill(token: string, customerId: string, issueDate: string, dueDate: string) {
   return apiRequest<{ billId: string; totalUnits: number }>(
     `/customers/${customerId}/bills`,
-    { method: "POST", body: { issueDate, dueDate } }
+    { method: "POST", body: { issueDate, dueDate }, token }
   );
 }
  
-export function getPayments(customerId: string) {
+export function getPayments(token: string, customerId: string) {
   return apiRequest<{ customerName: string; balance: number; payments: Payment[] }>(
-    `/customers/${customerId}/payments`
+    `/customers/${customerId}/payments`,
+    { token }
   );
 }
  
 export function makePayment(
+  token: string,
   customerId: string,
   billId: string,
   method: string,
@@ -89,10 +118,12 @@ export function makePayment(
   return apiRequest<{ status: string }>(`/customers/${customerId}/payments`, {
     method: "POST",
     body: { billId, method, reference, amount, date },
+    token,
   });
 }
  
 export function payByMpesa(
+  token: string,
   customerId: string,
   billId: string,
   code: string,
@@ -102,10 +133,12 @@ export function payByMpesa(
   return apiRequest<{ status: string }>(`/customers/${customerId}/payments/mpesa`, {
     method: "POST",
     body: { billId, code, amount, date },
+    token,
   });
 }
  
 export function payByTill(
+  token: string,
   customerId: string,
   billId: string,
   code: string,
@@ -115,5 +148,6 @@ export function payByTill(
   return apiRequest<{ status: string }>(`/customers/${customerId}/payments/mpesa-till`, {
     method: "POST",
     body: { billId, code, amount, date },
+    token,
   });
 }

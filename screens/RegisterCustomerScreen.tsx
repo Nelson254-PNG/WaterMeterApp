@@ -19,9 +19,11 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { registerCustomer } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 export default function RegisterCustomerScreen() {
   const navigation = useNavigation<any>();
+  const { token } = useAuth();
 
   // One useState per form field — the React equivalent of the
   // local variables you'd declare before a series of cin >>
@@ -51,7 +53,7 @@ export default function RegisterCustomerScreen() {
     setError(null);
 
     try {
-      await registerCustomer(name.trim(), phone.trim(), reading);
+      await registerCustomer(token!, name.trim(), phone.trim(), reading);
       // Success — go back to the list. The list screen's
       // useFocusEffect will automatically re-fetch and show
       // the new customer.

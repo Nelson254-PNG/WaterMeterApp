@@ -17,10 +17,12 @@ import {
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { getCustomers } from "../api/client";
-import { Customer } from "../types/index";
+import { Customer } from "../types";
+import { useAuth } from "../context/AuthContext";
 
 export default function CustomerListScreen() {
   const navigation = useNavigation<any>();
+  const { token, logout } = useAuth();
 
   // ── STATE ───────────────────────────────────────────────────
   // React's useState is the JS equivalent of a variable that,
@@ -36,10 +38,13 @@ export default function CustomerListScreen() {
   // This function calls your API client, which calls your
   // Crow /customers GET route, which queries Postgres —
   // the exact same chain you proved working with curl earlier.
+  // NOW passes the admin's token, required since this route
+  // is admin-only on the server side.
   const loadCustomers = useCallback(async () => {
+    if (!token) return;
     try {
       setError(null);
-      const data = await getCustomers();
+      const data = await getCustomers(token);
       setCustomers(data.customers);
     } catch (e: any) {
       setError(e.message ?? "Failed to load customers");
@@ -47,7 +52,7 @@ export default function CustomerListScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [token]);
 
   // ── REFRESH ON SCREEN FOCUS ──────────────────────────────────
   // useFocusEffect re-runs every time this screen becomes
@@ -91,6 +96,10 @@ export default function CustomerListScreen() {
   // ── MAIN LIST ────────────────────────────────────────────────
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+        <Text style={styles.logoutText}>Log Out</Text>
+      </TouchableOpacity>
+
       <FlatList
         data={customers}
         keyExtractor={(item) => item.id}
@@ -180,4 +189,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   fabText: { color: "white", fontSize: 28, fontWeight: "300", marginTop: -2 },
+  logoutButton: { alignSelf: "flex-end", marginRight: 16, marginTop: 8 },
+  logoutText: { color: "#dc2626", fontSize: 13, fontWeight: "600" },
 });
