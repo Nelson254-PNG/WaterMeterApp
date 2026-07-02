@@ -1,51 +1,32 @@
-// ============================================================
-//  screens/CustomerListScreen.tsx
-//  Fetches all customers from the API and displays them in a
-//  scrollable list. Tapping a customer navigates to their
-//  detail screen (built in the next step).
-// ============================================================
-
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
+  View, Text, FlatList, TouchableOpacity,
+  StyleSheet, ActivityIndicator, RefreshControl, TextInput,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { getCustomers } from "../api/client";
 import { Customer } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { Colors, Spacing, Radius, Shadow, Typography } from "../theme";
 
 export default function CustomerListScreen() {
   const navigation = useNavigation<any>();
   const { token, logout } = useAuth();
 
-  // ── STATE ───────────────────────────────────────────────────
-  // React's useState is the JS equivalent of a variable that,
-  // when changed, automatically re-renders the screen.
-  // Think of it like a C++ member variable that triggers a
-  // redraw whenever it's reassigned.
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [filtered, setFiltered] = useState<Customer[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── DATA FETCHING ───────────────────────────────────────────
-  // This function calls your API client, which calls your
-  // Crow /customers GET route, which queries Postgres —
-  // the exact same chain you proved working with curl earlier.
-  // NOW passes the admin's token, required since this route
-  // is admin-only on the server side.
   const loadCustomers = useCallback(async () => {
     if (!token) return;
     try {
       setError(null);
       const data = await getCustomers(token);
       setCustomers(data.customers);
+      setFiltered(data.customers);
     } catch (e: any) {
       setError(e.message ?? "Failed to load customers");
     } finally {
@@ -54,91 +35,106 @@ export default function CustomerListScreen() {
     }
   }, [token]);
 
-  // ── REFRESH ON SCREEN FOCUS ──────────────────────────────────
-  // useFocusEffect re-runs every time this screen becomes
-  // visible again (e.g. coming back from Register screen) —
-  // so the list is always up to date without manual refresh.
-  useFocusEffect(
-    useCallback(() => {
-      loadCustomers();
-    }, [loadCustomers])
-  );
+  useFocusEffect(useCallback(() => { loadCustomers(); }, [loadCustomers]));
 
-  // ── PULL-TO-REFRESH ──────────────────────────────────────────
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadCustomers();
+  const onRefresh = () => { setRefreshing(true); loadCustomers(); };
+
+  const handleSearch = (text: string) => {
+    setSearch(text);
+    setFiltered(
+      text.trim()
+        ? customers.filter(c => c.name.toLowerCase().includes(text.toLowerCase()))
+        : customers
+    );
   };
 
-  // ── LOADING STATE ────────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Loading customers...</Text>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={[Typography.label, { marginTop: Spacing.sm }]}>Loading customers...</Text>
       </View>
     );
   }
 
-  // ── ERROR STATE ──────────────────────────────────────────────
-  if (error) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>⚠ {error}</Text>
-        <Text style={styles.errorHint}>
-          Check that your API server is running and BASE_URL in api/client.ts
-          matches your laptop's current IP address.
-        </Text>
-      </View>
-    );
-  }
-
-  // ── MAIN LIST ────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-        <Text style={styles.logoutText}>Log Out</Text>
-      </TouchableOpacity>
+      {/* ── HEADER ────────────────────────────────── */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Customers</Text>
+          <Text style={styles.headerSub}>{customers.length} registered</Text>
+        </View>
+        <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── SEARCH ───────────────────────────────── */}
+      <View style={styles.searchWrapper}>
+        <TextInput
+          style={styles.searchInput}
+          value={search}
+          onChangeText={handleSearch}
+          placeholder="Search by name..."
+          placeholderTextColor={Colors.textMuted}
+          clearButtonMode="while-editing"
+        />
+      </View>
+
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠ {error}</Text>
+        </View>
+      )}
 
       <FlatList
-        data={customers}
+        data={filtered}
         keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         ListEmptyComponent={
-          <View style={styles.centered}>
-            <Text style={styles.emptyText}>No customers yet.</Text>
+          <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>👤</Text>
+            <Text style={styles.emptyTitle}>No customers yet</Text>
+            <Text style={styles.emptySubtitle}>Tap + to register the first one</Text>
           </View>
         }
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() =>
-              navigation.navigate("CustomerDetail", { customerId: item.id, customerName: item.name })
-            }
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate("CustomerDetail", { customerId: item.id, customerName: item.name })}
           >
-            <View style={styles.cardRow}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text
-                style={[
-                  styles.balance,
-                  item.balance > 0 ? styles.owing : item.balance < 0 ? styles.credit : styles.clear,
-                ]}
-              >
-                KES {item.balance.toFixed(2)}
+            {/* Avatar circle */}
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+            </View>
+
+            <View style={styles.cardBody}>
+              <Text style={styles.cardName}>{item.name}</Text>
+              <Text style={styles.cardMeta}>{item.meterNumber} · {item.phone}</Text>
+            </View>
+
+            <View style={styles.cardRight}>
+              <Text style={[
+                styles.cardBalance,
+                item.balance > 0 ? styles.owing : item.balance < 0 ? styles.credit : styles.clear
+              ]}>
+                KES {item.balance.toFixed(0)}
+              </Text>
+              <Text style={styles.cardBalanceLabel}>
+                {item.balance > 0 ? "OWING" : item.balance < 0 ? "CREDIT" : "CLEAR"}
               </Text>
             </View>
-            <Text style={styles.meta}>
-              {item.meterNumber} · {item.phone}
-            </Text>
           </TouchableOpacity>
         )}
       />
 
-      {/* Floating button to register a new customer */}
+      {/* ── FAB ──────────────────────────────────── */}
       <TouchableOpacity
         style={styles.fab}
+        activeOpacity={0.85}
         onPress={() => navigation.navigate("RegisterCustomer")}
       >
         <Text style={styles.fabText}>+</Text>
@@ -147,48 +143,65 @@ export default function CustomerListScreen() {
   );
 }
 
-// ── STYLES ─────────────────────────────────────────────────────
-// React Native's StyleSheet is conceptually like CSS, but
-// written as a JS object — no cascading, each component
-// references styles explicitly by name.
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  loadingText: { marginTop: 12, color: "#64748b" },
-  errorText: { color: "#dc2626", fontSize: 16, fontWeight: "600", textAlign: "center" },
-  errorHint: { color: "#64748b", fontSize: 13, marginTop: 8, textAlign: "center" },
-  emptyText: { color: "#64748b", fontSize: 15 },
+  container: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center", gap: Spacing.sm },
+
+  header: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.md,
+    backgroundColor: Colors.primaryDark,
+  },
+  headerTitle: { fontSize: 22, fontWeight: "700", color: "#fff" },
+  headerSub: { fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 },
+  logoutBtn: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: "rgba(255,255,255,0.15)", borderRadius: Radius.full },
+  logoutText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+
+  searchWrapper: { padding: Spacing.md, paddingBottom: Spacing.sm },
+  searchInput: {
+    backgroundColor: Colors.surface, borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    fontSize: 15, color: Colors.text,
+    ...Shadow.sm,
+  },
+
+  errorBanner: { marginHorizontal: Spacing.md, backgroundColor: Colors.dangerLight, borderRadius: Radius.sm, padding: Spacing.sm },
+  errorText: { color: Colors.danger, fontSize: 13 },
+
+  listContent: { paddingHorizontal: Spacing.md, paddingBottom: 100 },
   card: {
-    backgroundColor: "white",
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: Colors.surface, borderRadius: Radius.md,
+    padding: Spacing.md, marginBottom: Spacing.sm,
+    ...Shadow.sm,
   },
-  cardRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  name: { fontSize: 16, fontWeight: "600", color: "#1e293b" },
-  meta: { fontSize: 13, color: "#64748b", marginTop: 4 },
-  balance: { fontSize: 15, fontWeight: "700" },
-  owing: { color: "#dc2626" },
-  credit: { color: "#16a34a" },
-  clear: { color: "#64748b" },
+  avatar: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: "center", alignItems: "center", marginRight: Spacing.sm,
+  },
+  avatarText: { fontSize: 18, fontWeight: "700", color: Colors.primary },
+  cardBody: { flex: 1 },
+  cardName: { fontSize: 15, fontWeight: "600", color: Colors.text },
+  cardMeta: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  cardRight: { alignItems: "flex-end" },
+  cardBalance: { fontSize: 15, fontWeight: "700" },
+  cardBalanceLabel: { fontSize: 10, color: Colors.textMuted, marginTop: 1, letterSpacing: 0.5 },
+  owing: { color: Colors.danger },
+  credit: { color: Colors.success },
+  clear: { color: Colors.textMuted },
+
+  empty: { alignItems: "center", paddingTop: 60 },
+  emptyIcon: { fontSize: 48, marginBottom: Spacing.sm },
+  emptyTitle: { ...Typography.h3, color: Colors.textSecondary },
+  emptySubtitle: { ...Typography.caption, marginTop: 4 },
+
   fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#2563eb",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 4,
+    position: "absolute", right: Spacing.md, bottom: Spacing.lg,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: Colors.primary,
+    justifyContent: "center", alignItems: "center",
+    ...Shadow.lg,
   },
-  fabText: { color: "white", fontSize: 28, fontWeight: "300", marginTop: -2 },
-  logoutButton: { alignSelf: "flex-end", marginRight: 16, marginTop: 8 },
-  logoutText: { color: "#dc2626", fontSize: 13, fontWeight: "600" },
+  fabText: { color: "#fff", fontSize: 28, fontWeight: "300", marginTop: -2 },
 });

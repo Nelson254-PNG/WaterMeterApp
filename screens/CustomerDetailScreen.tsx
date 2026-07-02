@@ -1,25 +1,13 @@
-// ============================================================
-//  screens/CustomerDetailScreen.tsx
-//  Shows everything about ONE customer: balance, usage history,
-//  bills, and payment history. Buttons navigate to the action
-//  screens (Record Usage, Generate Bill, Make Payment).
-// ============================================================
-
 import React, { useState, useCallback } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
+  View, Text, ScrollView, TouchableOpacity,
+  StyleSheet, ActivityIndicator, RefreshControl, Alert,
 } from "react-native";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { getUsageHistory, getBills, getPayments, deleteCustomer } from "../api/client";
 import { UsageRecord, Bill, Payment } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { Colors, Spacing, Radius, Shadow, Typography } from "../theme";
 
 export default function CustomerDetailScreen() {
   const navigation = useNavigation<any>();
@@ -30,16 +18,11 @@ export default function CustomerDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [balance, setBalance] = useState(0);
   const [usage, setUsage] = useState<UsageRecord[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
 
-  // ── LOAD ALL THREE SECTIONS IN PARALLEL ──────────────────────
-  // Promise.all runs all three API calls AT THE SAME TIME rather
-  // than one after another — same end result, but faster, since
-  // none of these three queries depend on each other's result.
   const loadData = useCallback(async () => {
     if (!token) return;
     try {
@@ -54,228 +37,206 @@ export default function CustomerDetailScreen() {
       setBalance(billsData.balance);
       setPayments(paymentsData.payments);
     } catch (e: any) {
-      setError(e.message ?? "Failed to load customer data");
+      setError(e.message ?? "Failed to load");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [customerId, token]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [loadData])
-  );
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadData();
-  };
-
-  // ── DELETE WITH CONFIRMATION ──────────────────────────────────
-  // Alert.alert is React Native's built-in native confirmation
-  // dialog — equivalent to your CLI's "Type YES to confirm"
-  // prompt, but using the phone's actual native UI instead of
-  // typed text. We pass two buttons: a safe "Cancel" (default)
-  // and a destructive "Delete" that actually calls the API.
   const handleDelete = () => {
     Alert.alert(
       "Delete Customer?",
-      `This will permanently delete ${customerName} and ALL their usage records, bills, and payments. This cannot be undone.`,
+      `Permanently delete ${customerName} and ALL their data?`,
       [
         { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteCustomer(token!, customerId);
-              navigation.navigate("CustomerList");
-            } catch (e: any) {
-              Alert.alert("Delete Failed", e.message ?? "Could not delete customer");
-            }
-          },
-        },
+        { text: "Delete", style: "destructive", onPress: async () => {
+          try {
+            await deleteCustomer(token!, customerId);
+            navigation.navigate("CustomerList");
+          } catch (e: any) {
+            Alert.alert("Failed", e.message);
+          }
+        }},
       ]
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
-    );
-  }
+  if (loading) return (
+    <View style={styles.centered}>
+      <ActivityIndicator size="large" color={Colors.primary} />
+    </View>
+  );
+
+  const unpaidTotal = bills.filter(b => !b.paid).reduce((s, b) => s + (b.totalAmount - b.amountPaid), 0);
 
   return (
     <ScrollView
       style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={Colors.primary} />}
     >
-      {/* ── BALANCE CARD ──────────────────────────────────── */}
-      <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Current Balance</Text>
-        <Text
-          style={[
-            styles.balanceAmount,
-            balance > 0 ? styles.owing : balance < 0 ? styles.credit : styles.clear,
-          ]}
-        >
+      {/* ── BALANCE HERO ───────────────────────────── */}
+      <View style={styles.hero}>
+        <View style={styles.heroAvatar}>
+          <Text style={styles.heroAvatarText}>{customerName.charAt(0).toUpperCase()}</Text>
+        </View>
+        <Text style={styles.heroName}>{customerName}</Text>
+        <Text style={[
+          styles.heroBalance,
+          balance > 0 ? styles.owing : balance < 0 ? styles.credit : styles.clear
+        ]}>
           KES {balance.toFixed(2)}
         </Text>
-        <Text style={styles.balanceStatus}>
-          {balance > 0 ? "OWING" : balance < 0 ? "CREDIT" : "CLEAR"}
+        <Text style={styles.heroLabel}>
+          {balance > 0 ? "OUTSTANDING BALANCE" : balance < 0 ? "CREDIT" : "ACCOUNT CLEAR"}
         </Text>
       </View>
 
       {error && <Text style={styles.errorText}>⚠ {error}</Text>}
 
-      {/* ── ACTION BUTTONS ────────────────────────────────── */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate("RecordUsage", { customerId })}
-        >
-          <Text style={styles.actionButtonText}>Record Usage</Text>
+      {/* ── ACTION BUTTONS ─────────────────────────── */}
+      <View style={styles.actions}>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("RecordUsage", { customerId })}>
+          <Text style={styles.actionIcon}>💧</Text>
+          <Text style={styles.actionLabel}>Record Usage</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate("GenerateBill", { customerId })}
-        >
-          <Text style={styles.actionButtonText}>Generate Bill</Text>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("GenerateBill", { customerId })}>
+          <Text style={styles.actionIcon}>📄</Text>
+          <Text style={styles.actionLabel}>Generate Bill</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionBtn, styles.actionBtnGreen]} onPress={() => navigation.navigate("MakePayment", { customerId, bills })}>
+          <Text style={styles.actionIcon}>💳</Text>
+          <Text style={[styles.actionLabel, { color: Colors.success }]}>Pay</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={styles.payButton}
-        onPress={() => navigation.navigate("MakePayment", { customerId, bills })}
-      >
-        <Text style={styles.payButtonText}>Make a Payment</Text>
-      </TouchableOpacity>
 
-      <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-        <Text style={styles.deleteButtonText}>Delete Customer</Text>
-      </TouchableOpacity>
-
-      {/* ── USAGE HISTORY ─────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Usage History ({usage.length})</Text>
-      {usage.length === 0 ? (
-        <Text style={styles.emptyText}>No usage recorded yet.</Text>
-      ) : (
-        usage.map((r, i) => (
+      {/* ── USAGE ──────────────────────────────────── */}
+      <SectionHeader title="Usage History" count={usage.length} />
+      {usage.length === 0
+        ? <EmptyState message="No usage recorded yet" />
+        : usage.map((r, i) => (
           <View key={i} style={styles.row}>
             <Text style={styles.rowDate}>{r.date}</Text>
-            <Text style={styles.rowDetail}>
-              {r.previousReading} → {r.currentReading} m³
-            </Text>
-            <Text style={styles.rowValue}>{r.unitsUsed} m³</Text>
+            <Text style={styles.rowMain}>{r.previousReading} → {r.currentReading} m³</Text>
+            <Text style={[styles.rowValue, { color: Colors.primary }]}>{r.unitsUsed} m³</Text>
           </View>
         ))
-      )}
+      }
 
-      {/* ── BILLS ──────────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Bills ({bills.length})</Text>
-      {bills.length === 0 ? (
-        <Text style={styles.emptyText}>No bills generated yet.</Text>
-      ) : (
-        bills.map((b) => (
+      {/* ── BILLS ──────────────────────────────────── */}
+      <SectionHeader title="Bills" count={bills.length} />
+      {bills.length === 0
+        ? <EmptyState message="No bills generated yet" />
+        : bills.map((b) => (
           <View key={b.id} style={styles.row}>
             <Text style={styles.rowDate}>{b.issueDate}</Text>
-            <Text style={styles.rowDetail}>
-              {b.totalUnits} m³ · KES {b.totalAmount.toFixed(2)}
-            </Text>
-            <Text style={[styles.badge, b.paid ? styles.paidBadge : styles.unpaidBadge]}>
-              {b.paid ? "PAID" : "UNPAID"}
-            </Text>
+            <Text style={styles.rowMain}>KES {b.totalAmount.toFixed(2)}</Text>
+            <View style={[styles.badge, b.paid ? styles.paidBadge : styles.unpaidBadge]}>
+              <Text style={[styles.badgeText, b.paid ? styles.paidText : styles.unpaidText]}>
+                {b.paid ? "PAID" : "UNPAID"}
+              </Text>
+            </View>
           </View>
         ))
-      )}
+      }
 
-      {/* ── PAYMENTS ───────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Payment History ({payments.length})</Text>
-      {payments.length === 0 ? (
-        <Text style={styles.emptyText}>No payments yet.</Text>
-      ) : (
-        payments.map((p, i) => (
+      {/* ── PAYMENTS ───────────────────────────────── */}
+      <SectionHeader title="Payments" count={payments.length} />
+      {payments.length === 0
+        ? <EmptyState message="No payments yet" />
+        : payments.map((p, i) => (
           <View key={i} style={styles.row}>
             <Text style={styles.rowDate}>{p.date}</Text>
-            <Text style={styles.rowDetail}>{p.method}</Text>
-            <Text style={styles.rowValue}>KES {p.amountPaid.toFixed(2)}</Text>
+            <Text style={styles.rowMain}>{p.method}</Text>
+            <Text style={[styles.rowValue, { color: Colors.success }]}>KES {p.amountPaid.toFixed(2)}</Text>
           </View>
         ))
-      )}
+      }
 
+      {/* ── DELETE ─────────────────────────────────── */}
+      <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+        <Text style={styles.deleteBtnText}>Delete Customer</Text>
+      </TouchableOpacity>
       <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
+function SectionHeader({ title, count }: { title: string; count: number }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={styles.sectionCount}>{count}</Text>
+    </View>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return <Text style={styles.emptyText}>{message}</Text>;
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  container: { flex: 1, backgroundColor: Colors.background },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  balanceCard: {
-    backgroundColor: "white",
-    margin: 16,
-    padding: 20,
-    borderRadius: 14,
-    alignItems: "center",
+
+  hero: {
+    backgroundColor: Colors.primaryDark, alignItems: "center",
+    paddingTop: 32, paddingBottom: 28, paddingHorizontal: Spacing.lg,
   },
-  balanceLabel: { fontSize: 13, color: "#64748b" },
-  balanceAmount: { fontSize: 32, fontWeight: "700", marginTop: 4 },
-  balanceStatus: { fontSize: 12, color: "#94a3b8", marginTop: 4, letterSpacing: 1 },
-  owing: { color: "#dc2626" },
-  credit: { color: "#16a34a" },
-  clear: { color: "#64748b" },
-  errorText: { color: "#dc2626", textAlign: "center", marginBottom: 8 },
-  actionsRow: { flexDirection: "row", paddingHorizontal: 16, gap: 10 },
-  actionButton: {
-    flex: 1,
-    backgroundColor: "#eff6ff",
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#bfdbfe",
+  heroAvatar: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center", alignItems: "center", marginBottom: Spacing.sm,
   },
-  actionButtonText: { color: "#2563eb", fontWeight: "600" },
-  payButton: {
-    margin: 16,
-    backgroundColor: "#16a34a",
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
+  heroAvatarText: { fontSize: 30, fontWeight: "700", color: "#fff" },
+  heroName: { fontSize: 20, fontWeight: "700", color: "#fff" },
+  heroBalance: { fontSize: 34, fontWeight: "700", marginTop: Spacing.sm },
+  heroLabel: { fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 4, letterSpacing: 1 },
+  owing: { color: "#fca5a5" },
+  credit: { color: "#86efac" },
+  clear: { color: "rgba(255,255,255,0.7)" },
+
+  errorText: { color: Colors.danger, textAlign: "center", margin: Spacing.md },
+
+  actions: { flexDirection: "row", margin: Spacing.md, gap: Spacing.sm },
+  actionBtn: {
+    flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.md,
+    paddingVertical: Spacing.md, alignItems: "center",
+    borderWidth: 1, borderColor: Colors.border, ...Shadow.sm,
   },
-  payButtonText: { color: "white", fontWeight: "700", fontSize: 16 },
-  deleteButton: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    paddingVertical: 12,
-    alignItems: "center",
+  actionBtnGreen: { borderColor: Colors.success },
+  actionIcon: { fontSize: 22, marginBottom: 4 },
+  actionLabel: { fontSize: 12, fontWeight: "600", color: Colors.text },
+
+  sectionHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    marginHorizontal: Spacing.md, marginTop: Spacing.lg, marginBottom: Spacing.sm,
   },
-  deleteButtonText: { color: "#dc2626", fontWeight: "600", fontSize: 14 },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1e293b",
-    marginTop: 20,
-    marginHorizontal: 16,
-    marginBottom: 8,
+  sectionTitle: { fontSize: 15, fontWeight: "700", color: Colors.text },
+  sectionCount: {
+    fontSize: 12, color: Colors.primary, fontWeight: "700",
+    backgroundColor: Colors.primaryLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full,
   },
-  emptyText: { color: "#94a3b8", marginHorizontal: 16, fontSize: 13 },
+  emptyText: { color: Colors.textMuted, marginHorizontal: Spacing.md, fontSize: 13, marginBottom: Spacing.sm },
+
   row: {
-    backgroundColor: "white",
-    marginHorizontal: 16,
-    marginBottom: 8,
-    padding: 12,
-    borderRadius: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: Colors.surface, marginHorizontal: Spacing.md,
+    marginBottom: 6, padding: Spacing.md, borderRadius: Radius.md, ...Shadow.sm,
   },
-  rowDate: { fontSize: 12, color: "#64748b", width: 80 },
-  rowDetail: { fontSize: 13, color: "#1e293b", flex: 1 },
-  rowValue: { fontSize: 13, fontWeight: "700", color: "#1e293b" },
-  badge: { fontSize: 11, fontWeight: "700", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  paidBadge: { backgroundColor: "#dcfce7", color: "#16a34a" },
-  unpaidBadge: { backgroundColor: "#fee2e2", color: "#dc2626" },
+  rowDate: { fontSize: 12, color: Colors.textMuted, width: 80 },
+  rowMain: { flex: 1, fontSize: 13, color: Colors.text },
+  rowValue: { fontSize: 13, fontWeight: "700" },
+
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full },
+  paidBadge: { backgroundColor: Colors.successLight },
+  unpaidBadge: { backgroundColor: Colors.dangerLight },
+  badgeText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.5 },
+  paidText: { color: Colors.success },
+  unpaidText: { color: Colors.danger },
+
+  deleteBtn: { marginHorizontal: Spacing.md, marginTop: Spacing.xl, alignItems: "center" },
+  deleteBtnText: { color: Colors.danger, fontSize: 14, fontWeight: "600" },
 });

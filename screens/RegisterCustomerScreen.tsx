@@ -1,33 +1,17 @@
-// ============================================================
-//  screens/RegisterCustomerScreen.tsx
-//  A real form: name, phone, opening reading. Submits to the
-//  API, then navigates back to the list (which auto-refreshes
-//  thanks to useFocusEffect in CustomerListScreen).
-// ============================================================
-
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, ActivityIndicator, KeyboardAvoidingView,
+  Platform, ScrollView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { registerCustomer } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { Colors, Spacing, Radius, Shadow, Typography } from "../theme";
 
 export default function RegisterCustomerScreen() {
   const navigation = useNavigation<any>();
   const { token } = useAuth();
-
-  // One useState per form field — the React equivalent of the
-  // local variables you'd declare before a series of cin >>
-  // prompts in your CLI's registerCustomer().
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [openingReading, setOpeningReading] = useState("0");
@@ -35,81 +19,49 @@ export default function RegisterCustomerScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    // Basic validation BEFORE calling the API — same spirit as
-    // your CLI's "if (amount <= 0)" checks, just happening in
-    // the UI layer this time.
-    if (!name.trim() || !phone.trim()) {
-      setError("Name and phone are required.");
-      return;
-    }
-
+    if (!name.trim() || !phone.trim()) { setError("Name and phone are required."); return; }
     const reading = parseFloat(openingReading);
-    if (isNaN(reading) || reading < 0) {
-      setError("Opening reading must be a valid number ≥ 0.");
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-
+    if (isNaN(reading) || reading < 0) { setError("Opening reading must be a valid number ≥ 0."); return; }
+    setSubmitting(true); setError(null);
     try {
-      await registerCustomer(token!, name.trim(), phone.trim(), reading);
-      // Success — go back to the list. The list screen's
-      // useFocusEffect will automatically re-fetch and show
-      // the new customer.
+      const result = await registerCustomer(token!, name.trim(), phone.trim(), reading);
       navigation.goBack();
     } catch (e: any) {
       setError(e.message ?? "Registration failed");
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="e.g. Jane Wanjiru"
-          autoCapitalize="words"
-        />
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Text style={styles.hint}>A meter number will be assigned automatically.</Text>
 
-        <Text style={styles.label}>Phone Number</Text>
-        <TextInput
-          style={styles.input}
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="e.g. 0712345678"
-          keyboardType="phone-pad"
-        />
+        {[
+          { label: "Full Name", value: name, set: setName, placeholder: "e.g. Jane Wanjiru", cap: "words" as const, keyboard: "default" as const },
+          { label: "Phone Number", value: phone, set: setPhone, placeholder: "e.g. 0712345678", cap: "none" as const, keyboard: "phone-pad" as const },
+          { label: "Opening Meter Reading (m³)", value: openingReading, set: setOpeningReading, placeholder: "0", cap: "none" as const, keyboard: "numeric" as const },
+        ].map(f => (
+          <View key={f.label}>
+            <Text style={styles.label}>{f.label}</Text>
+            <TextInput
+              style={styles.input}
+              value={f.value}
+              onChangeText={f.set}
+              placeholder={f.placeholder}
+              autoCapitalize={f.cap}
+              keyboardType={f.keyboard}
+              placeholderTextColor={Colors.textMuted}
+            />
+          </View>
+        ))}
 
-        <Text style={styles.label}>Opening Meter Reading (m³)</Text>
-        <TextInput
-          style={styles.input}
-          value={openingReading}
-          onChangeText={setOpeningReading}
-          placeholder="0"
-          keyboardType="numeric"
-        />
-
-        {error && <Text style={styles.errorText}>⚠ {error}</Text>}
+        {error && <View style={styles.errorBox}><Text style={styles.errorText}>⚠ {error}</Text></View>}
 
         <TouchableOpacity
           style={[styles.button, submitting && styles.buttonDisabled]}
-          onPress={handleSubmit}
-          disabled={submitting}
+          onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}
         >
-          {submitting ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Register Customer</Text>
-          )}
+          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Register Customer</Text>}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -117,25 +69,18 @@ export default function RegisterCustomerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  label: { fontSize: 14, fontWeight: "600", color: "#374151", marginTop: 16, marginBottom: 6 },
+  container: { flex: 1, backgroundColor: Colors.background },
+  content: { padding: Spacing.md },
+  hint: { fontSize: 13, color: Colors.textSecondary, backgroundColor: Colors.primaryLight, padding: Spacing.sm, borderRadius: Radius.sm, marginBottom: Spacing.md },
+  label: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary, marginTop: Spacing.md, marginBottom: 6 },
   input: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: "white",
+    borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
+    fontSize: 15, color: Colors.text, backgroundColor: Colors.surface,
   },
-  errorText: { color: "#dc2626", marginTop: 16, fontSize: 14 },
-  button: {
-    backgroundColor: "#2563eb",
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 28,
-  },
+  errorBox: { backgroundColor: Colors.dangerLight, borderRadius: Radius.sm, padding: Spacing.sm, marginTop: Spacing.md },
+  errorText: { color: Colors.danger, fontSize: 13 },
+  button: { backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: 14, alignItems: "center", marginTop: Spacing.xl },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "white", fontSize: 16, fontWeight: "600" },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });
