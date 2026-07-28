@@ -1,16 +1,8 @@
-// ============================================================
-//  App.tsx — WaterMeterApp (Admin)
-//  Adds a bottom tab bar with two tabs:
-//    - Customers (the main workflow)
-//    - Dashboard (system overview - coming from reports)
-// ============================================================
-
 import React from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Colors } from "./theme";
 
@@ -22,15 +14,15 @@ import RecordUsageScreen from "./screens/RecordUsageScreen";
 import GenerateBillScreen from "./screens/GenerateBillScreen";
 import MakePaymentScreen from "./screens/MakePaymentScreen";
 import DashboardScreen from "./screens/DashboardScreen";
+import AlertsScreen from "./screens/AlertsScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return <Text style={{ fontSize: focused ? 24 : 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
+  return <Text style={{ fontSize: focused ? 22 : 18, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
 }
 
-// ── CUSTOMER STACK ───────────────────────────────────────────
 function CustomerStack() {
   return (
     <Stack.Navigator>
@@ -49,7 +41,6 @@ function CustomerStack() {
   );
 }
 
-// ── MAIN TABS ────────────────────────────────────────────────
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -57,33 +48,16 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: "#fff",
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          paddingBottom: 8,
-          paddingTop: 6,
-          height: 128,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginTop: 2 },
+        tabBarStyle: { backgroundColor: "#fff", borderTopColor: Colors.border, paddingBottom: 8, paddingTop: 6, height: 128 },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600", marginTop: 2 },
       }}
     >
-      <Tab.Screen
-        name="CustomersTab"
-        component={CustomerStack}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />,
-          tabBarLabel: "Customers",
-        }}
-      />
-      <Tab.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />,
-          tabBarLabel: "Dashboard",
-        }}
-      />
+      <Tab.Screen name="CustomersTab" component={CustomerStack}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />, tabBarLabel: "Customers" }} />
+      <Tab.Screen name="Alerts" component={AlertsScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🚨" focused={focused} />, tabBarLabel: "Alerts" }} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />, tabBarLabel: "Dashboard" }} />
     </Tab.Navigator>
   );
 }
@@ -111,11 +85,7 @@ function RootNavigator() {
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
-  );
+  return <AuthProvider><RootNavigator /></AuthProvider>;
 }
 
 const styles = StyleSheet.create({
